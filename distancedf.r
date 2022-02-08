@@ -40,12 +40,15 @@ fitdf <- function(formula, data, newdata=NULL, reps=999, ...){
   args <- list(...)
   covnames <- all.vars(formula)[-1]
   depname <- all.vars(formula)[1]
-  if(is.numeric(data[,depname])) names(data)[depname==names(data)] <- "distance" else{
-    cats <- strsplit(as.character(data[,depname]), "-")
-    data$distbegin <- unlist(lapply(cats, function(x) as.numeric(x[1])))
-    data$distend <- unlist(lapply(cats, function(x) as.numeric(x[2])))
-    data$distance <- (data$distbegin + data$distend) / 2
+  classes <- dplyr::summarise_all(data, class)
+  if(classes[depname]=="numeric") 
+    data <- dplyr::rename(data, distance=depname) else{
+      cats <- strsplit(as.character(dplyr::pull(data, depname)), "-")
+      data$distbegin <- unlist(lapply(cats, function(x) as.numeric(x[1])))
+      data$distend <- unlist(lapply(cats, function(x) as.numeric(x[2])))
+      data$distance <- (data$distbegin + data$distend) / 2
   }
+  data <- as.data.frame(data)
   if("quiet" %in% names(args))
     args <- c(data=list(data), formula=formula[-2], ...) else
       args <- c(data=list(data), formula=formula[-2], quiet=TRUE, ...)
