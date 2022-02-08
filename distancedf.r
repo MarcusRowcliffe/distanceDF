@@ -1,5 +1,6 @@
-library(Distance)
-library(MASS)
+require(Distance)
+require(MASS)
+require(tidyverse)
 
 integrate2 <- function(f,lower,upper,...,subs=100){
   h <- (upper-lower)/subs
