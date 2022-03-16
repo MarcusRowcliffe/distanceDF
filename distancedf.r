@@ -80,7 +80,7 @@ predict_esw <- function(mod, newdata=NULL, reps=999){
   if(length(covnames)==0){
     ESW <- esw(exp(cfs), ispoint, key, series, order, exp, w)
     SE <- sd(apply(exp(scfs), 1, esw, ispoint, key, series, order, exp, w))
-    return(data.frame(estimate=ESW, se=SE))
+    return(data.frame(estimate=unname(ESW), se=SE))
   } else{
     if(is.null(newdata)){
       newdata <- data %>% dplyr::select(all_of(covnames)) %>% 
