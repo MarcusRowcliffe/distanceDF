@@ -37,75 +37,70 @@ esw <- function(prm, ispoint, key, series, order, exp, w){
   res
 }
 
-fitdf <- function(formula, data, newdata=NULL, reps=999, ...){
+fitdf <- function(formula, data, reps=999, ...){
   args <- list(...)
-  covnames <- all.vars(formula)[-1]
   depname <- all.vars(formula)[1]
   classes <- dplyr::summarise_all(data, class)
   if(classes[depname]=="numeric") 
-    data <- dplyr::rename(data, distance=depname) else{
+    data <- dplyr::rename(data, distance=all_of(depname)) else{
       cats <- strsplit(as.character(dplyr::pull(data, depname)), "-")
       data$distbegin <- unlist(lapply(cats, function(x) as.numeric(x[1])))
       data$distend <- unlist(lapply(cats, function(x) as.numeric(x[2])))
       data$distance <- (data$distbegin + data$distend) / 2
-  }
+    }
   data <- as.data.frame(data)
   if("quiet" %in% names(args))
     args <- c(data=list(data), formula=formula[-2], ...) else
       args <- c(data=list(data), formula=formula[-2], quiet=TRUE, ...)
-  mod <- do.call(ds, args)
+  mod <- do.call(ds, args)$ddf
+  prdn <- predict_esw(mod, reps=reps)
+  list(ddf=mod, edd=prdn)
+}
 
-  key <- mod$ddf$ds$aux$ddfobj$type
-  series <- mod$ddf$ds$aux$ddfobj$adjustment$series
-  order <- mod$ddf$ds$aux$ddfobj$adjustment$order
-  exp <- mod$ddf$ds$aux$ddfobj$adjustment$exp
-  w <- mod$ddf$meta.data$width
-  ispoint <- mod$ddf$ds$aux$point
-  cfs <- mod$ddf$par
-  vcov <- abs(solve(-mod$ddf$hessian))
+predict_esw <- function(mod, newdata=NULL, reps=999){
+  data <- as.data.frame(unclass(mod$data), stringsAsFactors=T)
+  key <- mod$ds$aux$ddfobj$type
+  series <- mod$ds$aux$ddfobj$adjustment$series
+  order <- mod$ds$aux$ddfobj$adjustment$order
+  exp <- mod$ds$aux$ddfobj$adjustment$exp
+  w <- mod$meta.data$width
+  ispoint <- mod$ds$aux$point
+  cfs <- mod$par
+  names(cfs)[grep("Intercept", names(cfs))] <- "(Intercept)"
+  names(cfs) <- gsub("\\.", ":", names(cfs))
+  formula <- formula(mod$ds$aux$ddfobj$scale$formula)
+  covnames <- all.vars(formula)
+  vcov <- abs(solve(-mod$hessian))
   if(is.na(vcov[1])){
     message("Model failed to converge, no edd calculated")
     return(list(ddf=mod, edd=NULL))
   }
-  scfs <- mvrnorm(reps, cfs, vcov)
-
+  
   if(length(covnames)==0){
     ESW <- esw(exp(cfs), ispoint, key, series, order, exp, w)
     SE <- sd(apply(exp(scfs), 1, esw, ispoint, key, series, order, exp, w))
-    prdn <- data.frame(estimate=ESW, se=SE)
-  } else
-
-  { if(is.null(newdata)){
-      f <- function(txt){
-        lbrkt <- regexpr("\\(", txt)
-        rbrkt <- regexpr("\\)", txt)
-        if(lbrkt == -1) txt else substr(txt, lbrkt[1]+1, rbrkt[1]-1)
-      }
-      covnames <- lapply(covnames, f)
-      univals <- lapply(covnames, function(cov) unique(data[cov])[,1])
-      newdata <- expand.grid(univals)
-      names(newdata) <- unlist(covnames)
-    } else
-      for(nm in names(newdata)) levels(newdata[[nm]]) <- levels(data[[nm]])
-
-    ff <- strsplit(mod$ddf$dsmodel[2], "formula = ")[[1]][2]
-    ff <- formula(substr(ff, 1, nchar(ff)-1))
-    m <- model.frame(ff, newdata)
-    mat <- model.matrix(ff, m)
-
-    sc.ind <- match(names(mod$ddf$ds$aux$ddfobj$scale$parameters), c(names(cfs)))
-    excl <- 1:max(sc.ind)
-    prmat <- cbind(mat %*% cfs[sc.ind], cfs[-excl])
+    return(data.frame(estimate=ESW, se=SE))
+  } else{
+    if(is.null(newdata)){
+      newdata <- data %>% dplyr::select(all_of(covnames)) %>% 
+        lapply(function(x) if(is.numeric(x)) mean(x, na.rm=T) else sort(unique(x)))  %>% 
+        expand.grid()
+    }
+    for(nm in names(newdata)) 
+      if(!is.numeric(newdata[[nm]]))
+        newdata[[nm]] <- factor(newdata[[nm]], levels=levels(data[[nm]]))
+    mat <- model.matrix(formula, newdata)
+    prmat <- mat %*% cfs[colnames(mat)]
     if(key=="hr") prmat <- cbind(cfs[1], prmat)
     ESW <- apply(exp(prmat), 1, esw, ispoint, key, series, order, exp, w)
-
-    prmat <- matrix(scfs[, sc.ind] %*% t(mat), ncol=1)
+    
+    scfs <- mvrnorm(reps, cfs, vcov)
+    prmat <- matrix(scfs[, colnames(mat)] %*% t(mat), ncol=1)
     if(key=="hr") prmat <- cbind(scfs[, 1], prmat)
     esws <- matrix(apply(prmat, 1, esw, ispoint, key, series, order, exp, w), ncol=nrow(newdata))
     SE <- apply(esws, 2, sd, na.rm=TRUE)
-    prdn <- data.frame(newdata, estimate=ESW, se=SE)
+    data.frame(newdata, estimate=ESW, se=SE)
   }
-  list(ddf=mod$ddf, edd=prdn)
 }
 
 AICdf <- function(mods){
