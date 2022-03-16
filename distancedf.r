@@ -76,6 +76,7 @@ predict_esw <- function(mod, newdata=NULL, reps=999){
     return(list(ddf=mod, edd=NULL))
   }
   
+  scfs <- mvrnorm(reps, cfs, vcov)
   if(length(covnames)==0){
     ESW <- esw(exp(cfs), ispoint, key, series, order, exp, w)
     SE <- sd(apply(exp(scfs), 1, esw, ispoint, key, series, order, exp, w))
@@ -94,7 +95,6 @@ predict_esw <- function(mod, newdata=NULL, reps=999){
     if(key=="hr") prmat <- cbind(cfs[1], prmat)
     ESW <- apply(exp(prmat), 1, esw, ispoint, key, series, order, exp, w)
     
-    scfs <- mvrnorm(reps, cfs, vcov)
     prmat <- matrix(scfs[, colnames(mat)] %*% t(mat), ncol=1)
     if(key=="hr") prmat <- cbind(scfs[, 1], prmat)
     esws <- matrix(apply(prmat, 1, esw, ispoint, key, series, order, exp, w), ncol=nrow(newdata))
