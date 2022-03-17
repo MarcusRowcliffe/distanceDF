@@ -38,7 +38,6 @@ esw <- function(prm, ispoint, key, series, order, exp, w){
 }
 
 fitdf <- function(formula, data, reps=999, ...){
-  args <- list(...)
   depname <- all.vars(formula)[1]
   classes <- dplyr::summarise_all(data, class)
   if(classes[depname]=="numeric") 
@@ -49,9 +48,9 @@ fitdf <- function(formula, data, reps=999, ...){
       data$distance <- (data$distbegin + data$distend) / 2
     }
   data <- as.data.frame(data)
-  if("quiet" %in% names(args))
-    args <- c(data=list(data), formula=formula[-2], ...) else
-      args <- c(data=list(data), formula=formula[-2], quiet=TRUE, ...)
+  args <- c(data=list(data), formula=formula[-2], list(...))
+  args$order <- 0
+  args$quiet <- TRUE
   mod <- do.call(ds, args)$ddf
   prdn <- predict_esw(mod, reps=reps)
   list(ddf=mod, edd=prdn)
