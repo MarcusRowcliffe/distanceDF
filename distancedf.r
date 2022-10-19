@@ -38,7 +38,10 @@ esw <- function(prm, ispoint, key, series, order, exp, w){
 }
 
 fitdf <- function(formula, data, reps=999, ...){
-  depname <- all.vars(formula)[1]
+  vars <- all.vars(formula)
+  if("distance" %in% tail(vars, -1)) stop("Cannot use \"distance\" as a covariate name - rename and try again")
+  data <- dplyr::select(data, all_of(vars))
+  depname <- vars[1]
   classes <- dplyr::summarise_all(data, class)
   if(classes[depname]=="numeric") 
     data <- dplyr::rename(data, distance=all_of(depname)) else{

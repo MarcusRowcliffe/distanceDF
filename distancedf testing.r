@@ -1,5 +1,5 @@
-source("C:/Users/Rowcliffe.M/Documents/GitHub/distancedf/distancedf.r")
-setwd("C:/Users/Rowcliffe.M/Documents/Camera trapping/REM/Training/REM example/2017")
+source("distancedf.r")
+setwd("C:/Users/rowcliffe.m/OneDrive - Zoological Society of London/CameraTrapping/REM/Training/REM example/2017")
 dat <- read.csv("BCI_firstdetection_data.csv")
 summary(dat)
 dat$humid[dat$humid==999] <- NA
